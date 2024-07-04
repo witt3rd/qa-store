@@ -3,6 +3,7 @@ from qa_store import QuestionAnswerKB
 
 def test_qa_store():
     kb = QuestionAnswerKB()
+    kb.reset_database()
 
     # Add some question-answer pairs
     kb.add_qa("What is the capital of Germany?", "Berlin")
@@ -30,5 +31,17 @@ def test_qa_store():
     )
     results = kb.query("What is the capital of France?")
     assert results[0]["metadata"]["source"] == "Wikipedia"
+
+    results = kb.query(
+        "What is the capital of France?",
+        metadata_filter={"source": "Wikipedia"},
+    )
+    assert results[0]["metadata"]["source"] == "Wikipedia"
+
+    results = kb.query(
+        "What is the capital of France?",
+        metadata_filter={"source": "github"},
+    )
+    assert not results
 
     print("All tests passed!")
