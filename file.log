@@ -1,0 +1,26 @@
+2024-07-04 09:58:00.573 | INFO     | qa_store.main:__init__:43 - QuestionAnswerKB initialized for collection 'qa_kb'.
+2024-07-04 09:58:00.599 | INFO     | qa_store.main:add_qa:93 - Adding question: What is the capital of Germany?
+2024-07-04 09:58:02.132 | INFO     | qa_store.main:add_qa:93 - Adding question: Who is the president of the USA?
+2024-07-04 09:58:02.140 | INFO     | qa_store.main:add_qa:93 - Adding question: What is the answer to life, the universe, and everything?
+2024-07-04 09:58:02.150 | INFO     | qa_store.main:query:121 - Querying question: What is the capital of Germany?
+2024-07-04 09:58:02.162 | INFO     | qa_store.main:query:121 - Querying question: Who is the president of the USA?
+2024-07-04 09:58:02.169 | INFO     | qa_store.main:query:121 - Querying question: What is the answer to life, the universe, and everything?
+2024-07-04 09:58:02.193 | INFO     | qa_store.main:query:121 - Querying question: What is the capital of Germany?
+2024-07-04 09:58:02.201 | INFO     | qa_store.main:add_qa:93 - Adding question: What is the capital of France?
+2024-07-04 09:58:02.211 | INFO     | qa_store.main:query:121 - Querying question: What is the capital of France?
+2024-07-04 09:58:02.220 | INFO     | qa_store.main:query:121 - Querying question: What is the capital of France?
+2024-07-04 09:58:02.228 | INFO     | qa_store.main:query:121 - Querying question: What is the capital of France?
+2024-07-04 09:58:03.794 | INFO     | qa_store.main:add_qa:93 - Adding question: What is your favorite TV series
+2024-07-04 09:58:03.796 | INFO     | qa_store.main:add_qa:93 - Adding question: Which TV series do you like the most?
+2024-07-04 09:58:03.796 | INFO     | qa_store.main:add_qa:93 - Adding question: What TV series is your top pick?
+2024-07-04 09:58:03.796 | INFO     | qa_store.main:add_qa:93 - Adding question: Which is your preferred TV series?
+2024-07-04 09:58:03.797 | INFO     | qa_store.main:add_qa:93 - Adding question: What’s your number one TV series?
+2024-07-04 09:58:03.797 | INFO     | qa_store.main:add_qa:93 - Adding question: Which TV show do you enjoy the most?
+2024-07-04 09:58:03.820 | INFO     | qa_store.main:query:121 - Querying question: What is your favorite TV show
+2024-07-04 09:58:03.827 | INFO     | qa_store.main:add_qa:93 - Adding question: What is your favorite book?
+2024-07-04 09:58:04.832 | INFO     | qa_store.main:query:121 - Querying question: Do you have a book you like the most?
+2024-07-04 09:58:04.851 | INFO     | qa_store.main:query:121 - Querying question: 1. Is there a book that is your absolute favorite?
+2024-07-04 09:58:04.861 | INFO     | qa_store.main:query:121 - Querying question: 2. Do you have a favorite book?
+2024-07-04 09:58:04.868 | INFO     | qa_store.main:query:121 - Querying question: 3. Which book do you like the best?
+2024-07-04 09:58:04.876 | INFO     | qa_store.main:query:121 - Querying question: 4. Is there one book that stands out as your top choice?
+2024-07-04 09:58:04.887 | INFO     | qa_store.main:query:121 - Querying question: 5. Do you have a preferred book above all others?

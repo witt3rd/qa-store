@@ -6,6 +6,10 @@ authors = [{ name = "Donald Thompson", email = "witt3rd@witt3rd.com" }]
 dependencies = [
     "chromadb>=0.5.3",
     "sentence-transformers>=3.0.1",
+    "litellm>=1.41.6",
+    "openai>=1.35.10",
+    "loguru>=0.7.2",
+    "python-dotenv>=1.0.1",
 ]
 readme = "README.md"
 requires-python = ">= 3.8"

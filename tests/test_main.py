@@ -44,4 +44,13 @@ def test_qa_store():
     )
     assert not results
 
+    # Rewordings
+    kb.add_qa("What is your favorite TV series", "Band of Brothers", num_rewordings=5)
+    results = kb.query("What is your favorite TV show")
+    assert results[0]["answer"] == "Band of Brothers"
+
+    kb.add_qa("What is your favorite book?", "The Great Gatsby")
+    results = kb.query("Do you have a book you like the most?", num_rewordings=5)
+    assert results[0]["answer"] == "The Great Gatsby"
+
     print("All tests passed!")
