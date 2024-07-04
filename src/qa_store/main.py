@@ -18,6 +18,31 @@ REWORDING_MODEL_NAME = os.getenv("REWORDING_MODEL_NAME", "gpt-4-turbo")
 
 #
 
+REWORDING_PROMPT = dedent(
+    """
+Please reword the following question in {num_rewordings} different ways,
+maintaining its original meaning. Ensure each rewording uses a distinct sentence
+structure or different synonyms to avoid redundancy. Feel free to use different
+grammatical constructs, such as direct questions, indirect questions,
+statements, rhetorical questions, or exclamatory sentences, to add variety. Aim
+for a neutral level of formality, similar to how you would ask a question in a
+general knowledge quiz or a casual conversation. Ensure that the reworded
+questions maintain the original factual content and do not introduce any
+ambiguity. Provide the reworded questions in a list format, with each question
+on a new line, without numbers or bullets.
+
+Examples of rewording:
+Original question: What is the capital of Italy?
+Rewordings:
+- Which city serves as the capital of Italy?
+- Can you name the capital city of Italy?
+- What is the name of Italy's capital?
+
+Original question: {question}
+Rewordings:
+    """
+).strip()
+
 
 class QuestionAnswerKB:
     def __init__(
@@ -63,16 +88,11 @@ class QuestionAnswerKB:
         """
         if num_rewordings == 0:
             return [question]
-        prompt = dedent(f"""
-            Please reword the following question in {num_rewordings}
-            different ways, maintaining its original meaning. Provide
-            only the reworded questions, one per line (no numbers or
-            bullets).
 
-            Original question: {question}
-
-            Rewordings:
-            """).strip()
+        prompt = REWORDING_PROMPT.format(
+            num_rewordings=num_rewordings,
+            question=question,
+        )
 
         response = completion(
             model=REWORDING_MODEL_NAME,
