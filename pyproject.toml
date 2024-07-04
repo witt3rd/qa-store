@@ -1,0 +1,32 @@
+[project]
+name = "qa-store"
+version = "0.1.0"
+description = "Like a key-value store, but for questions and answers."
+authors = [{ name = "Donald Thompson", email = "witt3rd@witt3rd.com" }]
+dependencies = [
+    "chromadb>=0.5.3",
+    "sentence-transformers>=3.0.1",
+]
+readme = "README.md"
+requires-python = ">= 3.8"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.rye]
+managed = true
+dev-dependencies = [
+    "pytest>=8.2.2",
+    "ruff>=0.5.0",
+    "pre-commit>=3.7.1",
+]
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/qa_store"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
