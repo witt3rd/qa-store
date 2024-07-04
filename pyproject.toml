@@ -1,6 +1,6 @@
 [project]
 name = "qa-store"
-version = "0.1.0"
+version = "0.1.2"
 description = "Like a key-value store, but for questions and answers."
 authors = [{ name = "Donald Thompson", email = "witt3rd@witt3rd.com" }]
 dependencies = [
@@ -20,7 +20,12 @@ build-backend = "hatchling.build"
 
 [tool.rye]
 managed = true
-dev-dependencies = ["pytest>=8.2.2", "ruff>=0.5.0", "pre-commit>=3.7.1"]
+dev-dependencies = [
+    "pytest>=8.2.2",
+    "ruff>=0.5.0",
+    "pre-commit>=3.7.1",
+    "pip>=24.1.1",
+]
 
 [tool.hatch.build]
 exclude = [".rye"]

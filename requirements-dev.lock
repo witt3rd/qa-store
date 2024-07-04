@@ -216,6 +216,7 @@ packaging==24.1
     # via transformers
 pillow==10.4.0
     # via sentence-transformers
+pip==24.1.1
 platformdirs==4.2.2
     # via virtualenv
 pluggy==1.5.0
