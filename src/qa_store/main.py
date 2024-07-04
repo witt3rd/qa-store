@@ -34,9 +34,9 @@ on a new line, without numbers or bullets.
 Examples of rewording:
 Original question: What is the capital of Italy?
 Rewordings:
-- Which city serves as the capital of Italy?
-- Can you name the capital city of Italy?
-- What is the name of Italy's capital?
+Which city serves as the capital of Italy?
+Can you name the capital city of Italy?
+What is the name of Italy's capital?
 
 Original question: {question}
 Rewordings:
@@ -100,6 +100,7 @@ class QuestionAnswerKB:
         )
         rewordings = response.choices[0].message.content.strip().split("\n")
         questions = [question] + rewordings
+        questions = [q.strip() for q in questions]
         return questions
 
     def add_qa(

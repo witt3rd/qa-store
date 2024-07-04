@@ -1,6 +1,6 @@
 [project]
 name = "qa-store"
-version = "0.1.4"
+version = "0.1.5"
 description = "Like a key-value store, but for questions and answers."
 authors = [{ name = "Donald Thompson", email = "witt3rd@witt3rd.com" }]
 dependencies = [
