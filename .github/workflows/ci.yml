@@ -16,9 +16,9 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: rye run pytest
       - name: Lint
-        run: rye run ruff check .
+        run: rye run ruff check ./src
       - name: Format check
-        run: rye run ruff format .
+        run: rye run ruff format ./src
 
   publish:
     needs: test
