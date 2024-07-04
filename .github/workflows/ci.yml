@@ -12,6 +12,8 @@ jobs:
       - name: Install dependencies
         run: rye sync
       - name: Run tests
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: rye run pytest
       - name: Lint
         run: rye run ruff check .
