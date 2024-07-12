@@ -14,34 +14,30 @@ load_dotenv()
 
 DB_DIR = os.getenv("DB_DIR", "./chroma_db")
 EMBEDDING_MODEL_NAME = os.getenv("EMBEDDING_MODEL_NAME", "all-MiniLM-L6-v2")
-REWORDING_MODEL_NAME = os.getenv("REWORDING_MODEL_NAME", "gpt-4-turbo")
+REWORDING_MODEL_NAME = os.getenv("REWORDING_MODEL_NAME", "gpt-3.5-turbo")
 
 #
 
-REWORDING_PROMPT = dedent(
-    """
-Please reword the following question in {num_rewordings} different ways,
-maintaining its original meaning. Ensure each rewording uses a distinct sentence
-structure or different synonyms to avoid redundancy. Feel free to use different
-grammatical constructs, such as direct questions, indirect questions,
-statements, rhetorical questions, or exclamatory sentences, to add variety. Aim
-for a neutral level of formality, similar to how you would ask a question in a
-general knowledge quiz or a casual conversation. Ensure that the reworded
-questions maintain the original factual content and do not introduce any
-ambiguity. Provide the reworded questions in a list format, with each question
+REWORDING_PROMPT = dedent("""
+Rephrase the [ORIGINAL QUESTION] provided in {num_rewordings} distinct ways,
+ensuring the meaning and context remain intact.
+Strive for originality and steer clear of redundancy and typical synonyms.
+Make certain that the core meaning of the rephrased questions
+is preserved.
+Provide the reworded questions in a list format, with each question
 on a new line, without numbers or bullets.
 
-Examples of rewording:
-Original question: What is the capital of Italy?
-Rewordings:
+## Example:
+[ORIGINAL QUESTION]: What is the capital of Italy?
+[REWRITTEN QUESTIONS]:
 Which city serves as the capital of Italy?
 Can you name the capital city of Italy?
 What is the name of Italy's capital?
 
-Original question: {question}
-Rewordings:
-    """
-).strip()
+## Input:
+[ORIGINAL QUESTION]: {question}
+[REWRITTEN QUESTIONS]:
+""").strip()
 
 
 class QuestionAnswerKB:
@@ -79,12 +75,17 @@ class QuestionAnswerKB:
         """
         Generate rewordings of a given question using GPT-4.
 
-        Args:
-            question (str): The question string.
-            num_rewordings (int): Number of rewordings to generate.
+        Parameters
+        ----------
+        question : str
+            The question string.
+        num_rewordings : int
+            Number of rewordings to generate.
 
-        Returns:
-            List[str]: A list of reworded questions, including the original question.
+        Returns
+        -------
+        List[str]
+            A list of reworded questions, including the original question.
         """
         if num_rewordings == 0:
             return [question]
@@ -101,11 +102,13 @@ class QuestionAnswerKB:
         rewordings = response.choices[0].message.content.strip().split("\n")
         questions = [question] + rewordings
         questions = [q.strip() for q in questions]
+        for i, q in enumerate(questions):
+            logger.trace(f"Reworded question {i+1}: {q}")
         return questions
 
     def add_qa(
         self,
-        question: str,
+        question: str | list[str],
         answer: Any,
         metadata: Dict[str, Any] | None = None,
         num_rewordings: int = 0,
@@ -113,23 +116,32 @@ class QuestionAnswerKB:
         """
         Add a question-answer pair to the KB, including rewordings if specified.
 
-        Args:
-            question (str): The question string.
-            answer (Any): The answer (converted to string).
-            metadata (Dict[str, Any] | None, optional): Optional metadata about
-            the QA pair. Defaults to None.
-            num_rewordings (int, optional): Number of question rewordings to
-            generate and index. Defaults to 0.
+        Parameters
+        ----------
+        question : str or list of str
+            The question string or list of question strings.
+        answer : Any
+            The answer (converted to string).
+        metadata : dict of {str: Any} or None, optional
+            Optional metadata about the QA pair. Default is None.
+        num_rewordings : int, optional
+            Number of question rewordings to generate and index. Default is 0.
 
-        Returns:
-            Set[str]: A set of all questions (original and rewordings) that were
-            indexed.
+        Returns
+        -------
+        set of str
+            A set of all questions (original and rewordings) that were indexed.
 
         """
         metadata = metadata or {}
         metadata["answer"] = str(answer)
 
-        questions = self.generate_rewordings(question, num_rewordings)
+        if isinstance(question, str) and num_rewordings > 0:
+            questions = self.generate_rewordings(question, num_rewordings)
+        elif isinstance(question, list) and num_rewordings > 0:
+            questions = question
+        else:
+            questions = [question]
 
         documents = []
         metadatas = []
@@ -141,13 +153,17 @@ class QuestionAnswerKB:
             metadatas.append(metadata.copy())
             ids.append(f"qa_{self.collection.count()}_{i}")
 
-        self.collection.add(documents=documents, metadatas=metadatas, ids=ids)
+        self.collection.add(
+            documents=documents,
+            metadatas=metadatas,
+            ids=ids,
+        )
 
         return set(questions)
 
     def query(
         self,
-        question: str,
+        question: str | list[str],
         n_results: int = 5,
         metadata_filter: Optional[Dict[str, Any]] = None,
         num_rewordings: int = 0,
@@ -156,19 +172,29 @@ class QuestionAnswerKB:
         Query the KB for answers to a given question, with optional metadata
         filtering and question rewordings.
 
-        Args:
-            question (str): The question string.
-            n_results (int, optional): Number of results to return. Defaults to 5.
-            metadata_filter (Optional[Dict[str, Any]], optional): Optional metadata
-            filter. Defaults to None.
-            num_rewordings (int, optional): Number of question rewordings to
-            generate and query. Defaults to 0.
+        Parameters
+        ----------
+        question : str or list of str
+            The question string or list of question strings.
+        n_results : int, optional
+            Number of results to return (default is 5).
+        metadata_filter : dict, optional
+            Optional metadata filter (default is None).
+        num_rewordings : int, optional
+            Number of question rewordings to generate and query (default is 0).
 
-        Returns:
-            List[Dict[str, Any]]: A list of dictionaries containing the question,
-            answer, metadata, and similarity score for each result.
+        Returns
+        -------
+        list of dict
+            A list of dictionaries containing the question, answer, metadata,
+            and similarity score for each result.
         """
-        questions = self.generate_rewordings(question, num_rewordings)
+        if isinstance(question, str) and num_rewordings > 0:
+            questions = self.generate_rewordings(question, num_rewordings)
+        elif isinstance(question, list) and num_rewordings > 0:
+            questions = question
+        else:
+            questions = [question]
 
         all_results = []
         for q in questions:
@@ -209,33 +235,51 @@ class QuestionAnswerKB:
                 unique_results.append(result)
 
         # Sort by similarity and return top n_results
-        return sorted(
+        final_results = sorted(
             unique_results,
             key=lambda x: x["similarity"],
             reverse=True,
         )[:n_results]
+        for i, result in enumerate(final_results):
+            logger.trace(f"Query result {i+1}: {result}")
+        return final_results
 
-    def update_answer(self, question: str, new_answer: Any) -> None:
+    def update_answer(
+        self,
+        question: str,
+        new_answer: Any,
+    ) -> None:
         """
         Update the answer to a question in the KB.
 
-        Args:
-            question (str): The question string.
-            new_answer (Any): The new answer (converted to string).
+        Parameters
+        ----------
+        question : str
+            The question string.
+        new_answer : Any
+            The new answer (converted to string).
 
-        Raises:
-            ValueError: If the question is not found in the KB.
+        Raises
+        ------
+        ValueError
+            If the question is not found in the KB.
         """
 
         results = self.collection.query(
-            query_texts=[question], n_results=1, include=["metadatas"]
+            query_texts=[question],
+            n_results=1,
+            include=["metadatas"],
         )
 
         if results["ids"][0]:
             id = results["ids"][0][0]
             metadata = results["metadatas"][0][0]
             metadata["answer"] = str(new_answer)
-            self.collection.update(ids=[id], documents=[question], metadatas=[metadata])
+            self.collection.update(
+                ids=[id],
+                documents=[question],
+                metadatas=[metadata],
+            )
         else:
             raise ValueError("Question not found in KB")
         logger.info(f"Answer to question '{question}' has been updated.")
@@ -251,14 +295,16 @@ class QuestionAnswerKB:
 
     def clear(self) -> None:
         """
-        Clear the entire collection, effectively deleting all question-answer pairs.
+        Clear the entire collection, effectively deleting all question-answer
+        pairs.
         """
         self.collection.delete(ids=self.collection.get(include=["ids"])["ids"])
         logger.trace(f"Collection '{self.collection_name}' has been cleared.")
 
     def reset_database(self) -> None:
         """
-        Drop the entire collection and recreate it, effectively resetting the database.
+        Drop the entire collection and recreate it, effectively resetting the
+        database.
         """
         try:
             # Delete the existing collection

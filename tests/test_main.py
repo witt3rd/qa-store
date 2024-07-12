@@ -1,4 +1,15 @@
+import sys
+
+from loguru import logger
 from qa_store import QuestionAnswerKB
+
+# Remove the default handler
+logger.remove()
+
+# Add a new handler with TRACE level
+logger.add(sys.stderr, level="TRACE")
+
+#
 
 
 def test_qa_store():
