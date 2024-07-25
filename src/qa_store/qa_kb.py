@@ -1,3 +1,4 @@
+import json
 import os
 from textwrap import dedent
 from typing import Any, Dict, List, Optional, Set
@@ -8,13 +9,17 @@ from dotenv import load_dotenv
 from litellm import completion
 from loguru import logger
 
+from qa_store.helpers import get_json_list
+
 #
 
 load_dotenv()
 
-DB_DIR = os.getenv("DB_DIR", "./chroma_db")
+DB_DIR = os.getenv("DB_DIR", "db")
+DEFAULT_COLLECTION_NAME = os.getenv("DEFAULT_COLLECTION_NAME", "qa_kb")
 EMBEDDING_MODEL_NAME = os.getenv("EMBEDDING_MODEL_NAME", "all-MiniLM-L6-v2")
-REWORDING_MODEL_NAME = os.getenv("REWORDING_MODEL_NAME", "gpt-3.5-turbo")
+REWORDING_MODEL_NAME = os.getenv("REWORDING_MODEL_NAME", "gpt-4o-mini")
+QA_PAIRS_MODEL_NAME = os.getenv("QA_PAIRS_MODEL_NAME", "gpt-4o-mini")
 
 #
 
@@ -40,13 +45,63 @@ What is the name of Italy's capital?
 """).strip()
 
 
+QA_PAIRS_PROMPT = dedent("""
+Generate a balanced set (2 or more) of relevant questions and their
+corresponding answers provided by the given text.
+Ensure the questions cover a mix of factual, analytical, application-based,
+cause-and-effect, comparison, and scenario-based types to provide both
+surface-level and in-depth knowledge of the subject.
+Only generate questions for which answers are present in the text.  Do not
+speculate.
+Format your result as a JSON array of objects, where each object has a 'q' key
+for the question and an 'a' key for the answer.
+
+## Example:
+[INPUT TEXT]
+The ego is a psychological concept that represents the part of the human psyche
+responsible for mediating between the unconscious and the conscious mind. It
+plays a crucial role in personality development, decision-making, and reality
+testing. The ego helps individuals navigate their environment, manage impulses,
+and maintain a sense of self. In Freudian psychoanalysis, the ego is part of a
+tripartite model of the psyche, which also includes the id and the superego.
+
+[OUTPUT JSON]
+[{"q": "What is the ego in psychological terms?", "a": "The ego is a
+psychological concept that represents the part of the human psyche responsible
+for mediating between the unconscious and the conscious mind."}, {"q": "What are
+the main functions of the ego?", "a": "The main functions of the ego include
+playing a crucial role in personality development, decision-making, reality
+testing, helping individuals navigate their environment, managing impulses, and
+maintaining a sense of self."}, {"q": "How does the ego relate to Freudian
+psychoanalysis?", "a": "In Freudian psychoanalysis, the ego is part of a
+tripartite model of the psyche, which also includes the id and the superego."},
+{"q": "How does the ego help in managing impulses?", "a": "The ego helps in
+managing impulses by mediating between the unconscious desires (often
+represented by the id) and the constraints of reality, allowing individuals to
+make decisions that balance their needs with social and environmental
+demands."}, {"q": "What is the relationship between the ego and reality
+testing?", "a": "The ego is responsible for reality testing, which involves
+assessing the external world and distinguishing between internal psychological
+experiences and external reality, helping individuals to adapt to their
+environment effectively."}, {"q": "How does the ego contribute to personality
+development?", "a": "The ego contributes to personality development by helping
+individuals form a stable sense of self, make decisions, and interact with their
+environment in ways that shape their unique characteristics and behaviors over
+time."}, {"q": "What might happen if the ego is not functioning properly?", "a":
+"If the ego is not functioning properly, an individual might struggle with
+decision-making, have difficulty managing impulses, experience a distorted sense
+of reality, or have problems maintaining a stable sense of self. However,
+specific consequences are not provided in the given text."}]
+""").strip()
+
+
 class QuestionAnswerKB:
     def __init__(
         self,
-        collection_name: str = "qa_kb",
-        openai_api_key: str | None = None,
+        db_dir: str = DB_DIR,
+        collection_name: str = DEFAULT_COLLECTION_NAME,
     ) -> None:
-        self.client = chromadb.PersistentClient(path=DB_DIR)
+        self.client = chromadb.PersistentClient(path=db_dir)
         self.embedding_function = (
             embedding_functions.SentenceTransformerEmbeddingFunction(
                 model_name=EMBEDDING_MODEL_NAME
@@ -58,19 +113,65 @@ class QuestionAnswerKB:
             embedding_function=self.embedding_function,
         )
 
-        # Set OpenAI API key
-        if openai_api_key:
-            os.environ["OPENAI_API_KEY"] = openai_api_key
-        elif "OPENAI_API_KEY" not in os.environ:
-            raise ValueError(
-                "OpenAI API key must be provided or set as an environment variable."
-            )
         logger.info(f"QuestionAnswerKB initialized for collection '{collection_name}'.")
+
+    def generate_qa_pairs(
+        self,
+        input_text: str,
+        model: str = QA_PAIRS_MODEL_NAME,
+    ) -> List[Dict[str, str]]:
+        """
+        Generate a set of Question-Answer pairs from the given input text.
+
+        Args:
+            input_text (str): The text to generate questions and answers from.
+            model (str): The model to use for completion. Defaults to "gpt-3.5-turbo".
+
+        Returns:
+            List[Dict[str, str]]: A list of dictionaries, each containing a
+            question and its corresponding answer.
+        """
+        prompt = f"[INPUT TEXT]\n{input_text}\n\n[JSON OUTPUT]\n"
+
+        try:
+            response = completion(
+                model=model,
+                messages=[
+                    {"role": "system", "content": QA_PAIRS_PROMPT},
+                    {"role": "user", "content": prompt},
+                ],
+                response_format={"type": "json_object"},
+            )
+
+            content = response.choices[0].message.content
+
+            qa_pairs = get_json_list(content)
+
+            # Ensure the response is a list of dictionaries
+            if not isinstance(qa_pairs, list):
+                raise ValueError(
+                    "Expected a list of QA pairs, but got a different format."
+                )
+
+            # Validate each QA pair
+            for pair in qa_pairs:
+                if not isinstance(pair, dict) or "q" not in pair or "a" not in pair:
+                    raise ValueError("Invalid QA pair format in the response.")
+
+            return qa_pairs
+
+        except json.JSONDecodeError:
+            print("Error: Unable to parse the response as JSON.")
+            return []
+        except Exception as e:
+            print(f"An error occurred: {str(e)}")
+            return []
 
     def generate_rewordings(
         self,
         question: str,
         num_rewordings: int,
+        model: str = REWORDING_MODEL_NAME,
     ) -> List[str]:
         """
         Generate rewordings of a given question using GPT-4.
@@ -96,7 +197,7 @@ class QuestionAnswerKB:
         )
 
         response = completion(
-            model=REWORDING_MODEL_NAME,
+            model=model,
             messages=[{"role": "user", "content": prompt}],
         )
         rewordings = response.choices[0].message.content.strip().split("\n")
@@ -319,3 +420,43 @@ class QuestionAnswerKB:
             name=self.collection_name, embedding_function=self.embedding_function
         )
         logger.trace(f"Collection '{self.collection_name}' has been recreated.")
+
+    def add_tree_question(
+        self, question: str, tree_id: int, answer: Optional[str] = None
+    ):
+        metadata = {"tree_id": tree_id, "from_tree": True}
+        self.add_qa(question, answer, metadata=metadata)
+
+    def get_tree_questions(self) -> List[Dict[str, Any]]:
+        return self.query(
+            "", metadata_filter={"from_tree": True}, n_results=self.collection.count()
+        )
+
+    def update_tree_question(self, tree_id: int, answer: str):
+        results = self.query("", metadata_filter={"tree_id": tree_id}, n_results=1)
+        if results:
+            question = results[0]["question"]
+            self.update_answer(question, answer)
+
+
+if __name__ == "__main__":
+    kb = QuestionAnswerKB()
+    # QA pairs
+    results = kb.generate_qa_pairs(
+        dedent("""
+        Machine learning is a subset of artificial intelligence that focuses on
+        the development of algorithms and statistical models that enable
+        computer systems to improve their performance on a specific task through
+        experience. It involves training models on large datasets to recognize
+        patterns and make predictions or decisions without being explicitly
+        programmed. Common types of machine learning include supervised
+        learning, unsupervised learning, and reinforcement learning.
+        Applications of machine learning are widespread, including in areas such
+        as image and speech recognition, natural language processing,
+        recommendation systems, and autonomous vehicles.
+        """).strip()
+    )
+    for i, pair in enumerate(results, 1):
+        print(f"Q{i}: {pair['q']}")
+        print(f"A{i}: {pair['a']}")
+        print()

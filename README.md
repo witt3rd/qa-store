@@ -3,12 +3,14 @@
 Like key-value, but with questions and answers.
 
 [![PyPI version](https://badge.fury.io/py/qa-store.svg)](https://badge.fury.io/py/qa-store)
+[![CI](https://github.com/witt3rd/qa-store/actions/workflows/ci.yml/badge.svg)](https://github.com/witt3rd/qa-store/actions/workflows/ci.yml)
+[![Rye](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/rye/main/artwork/badge.json)](https://rye.astral.sh)
 [![GitHub license](https://img.shields.io/github/license/witt3rd/qa-store.svg)](https://github.com/witt3rd/qa-store/blob/main/LICENSE)
 [![GitHub issues](https://img.shields.io/github/issues/witt3rd/qa-store.svg)](https://github.com/witt3rd/qa-store/issues)
 [![GitHub stars](https://img.shields.io/github/stars/witt3rd/qa-store.svg)](https://github.com/witt3rd/qa-store/stargazers)
 [![Twitter](https://img.shields.io/twitter/url/https/twitter.com/dt_public.svg?style=social&label=Follow%20%40dt_public)](https://twitter.com/dt_public)
 
-A Python package for managing and querying a Question-Answer Knowledge Base using vector embeddings.
+A Python package for managing and querying a Question-Answer Knowledge Base using vector embeddings and tree structures.
 
 ## Features
 
@@ -17,6 +19,10 @@ A Python package for managing and querying a Question-Answer Knowledge Base usin
 - Metadata support for filtering and additional information
 - Vector-based similarity search for efficient querying
 - Persistent storage using ChromaDB
+- Tree structure for organizing questions hierarchically
+- Automatic generation of question-answer pairs from text
+- Priority-based question suggestion system
+- Visualization of the question tree
 
 ## Installation
 
@@ -31,59 +37,50 @@ pip install qa-store
 Here's a quick example of how to use `qa-store`:
 
 ```python
-from qa_store import QuestionAnswerKB
+from qa_store import QuestionAnswerSystem
 
-# Initialize the Knowledge Base
-kb = QuestionAnswerKB()
+# Initialize the Question Answer System
+qas = QuestionAnswerSystem("qa_system.db", "qa_collection")
 
-# Add a question-answer pair
-kb.add_qa("What is the capital of France?", "Paris", metadata={"source": "Geography 101"})
+# Add a question to the tree
+question_id = qas.add_question("What is the capital of France?")
+
+# Answer the question
+qas.answer_question(question_id, "Paris")
 
 # Query the Knowledge Base
-results = kb.query("What's the capital city of France?")
+results = qas.query("What's the capital city of France?")
 print(results[0]["answer"])  # Output: Paris
 
-# Update an answer
-kb.update_answer("What is the capital of France?", "Paris (City of Light)")
+# Get unanswered questions
+unanswered = qas.get_unanswered_questions()
 
-# Query with metadata filter
-results = kb.query("capital of France", metadata_filter={"source": "Geography 101"})
+# Get the next suggested question
+next_question = qas.suggest_next_question()
 ```
 
 ## Advanced Usage Example
 
-This example showcases the use of question rewordings for both adding QA pairs and querying the knowledge base:
+This example showcases the use of the QuestionAnswerSystem, including adding questions, answering them, and querying the knowledge base:
 
 ```python
-from qa_store import QuestionAnswerKB
+from qa_store import QuestionAnswerSystem
 
-# Initialize the Knowledge Base
-kb = QuestionAnswerKB()
+# Initialize the Question Answer System
+qas = QuestionAnswerSystem("qa_system.db", "qa_collection")
 
-# Add a question-answer pair with rewordings
-original_question = "What is the best way to learn programming?"
-answer = "The best way to learn programming is through consistent practice, working on real projects, and continuous learning."
+# Add a root question
+root_id = qas.add_question("What are the main topics in computer science?")
 
-added_questions = kb.add_qa(
-    question=original_question,
-    answer=answer,
-    metadata={"topic": "education", "field": "computer science"},
-    num_rewordings=3
-)
+# Add child questions
+qas.add_question("What is machine learning?", parent_id=root_id)
+qas.add_question("What are data structures?", parent_id=root_id)
 
-print("Added questions:")
-for q in added_questions:
-    print(f"- {q}")
+# Answer some questions
+qas.answer_question(root_id, "The main topics in computer science include algorithms, data structures, artificial intelligence, and software engineering.")
 
-# Now let's query the Knowledge Base with a different phrasing
-query_question = "How can I become proficient in coding?"
-
-results = kb.query(
-    question=query_question,
-    n_results=2,
-    metadata_filter={"topic": "education"},
-    num_rewordings=2
-)
+# Query the Knowledge Base
+results = qas.query("What are the fundamental areas of computer science?", num_rewordings=2)
 
 print("\nQuery results:")
 for result in results:
@@ -92,7 +89,49 @@ for result in results:
     print(f"Similarity: {result['similarity']:.2f}")
     print(f"Metadata: {result['metadata']}")
     print()
+
+# Get the next suggested question
+next_question = qas.suggest_next_question()
+if next_question:
+    print(f"Suggested next question: {next_question['question']}")
 ```
+
+## Advanced Features
+
+### Generating QA Pairs from Text
+
+You can automatically generate question-answer pairs from a given text:
+
+```python
+from qa_store import QuestionAnswerKB
+
+kb = QuestionAnswerKB()
+
+text = """
+Machine learning is a subset of artificial intelligence that focuses on
+the development of algorithms and statistical models that enable
+computer systems to improve their performance on a specific task through
+experience.
+"""
+
+qa_pairs = kb.generate_qa_pairs(text)
+
+for pair in qa_pairs:
+    kb.add_qa(pair['q'], pair['a'])
+```
+
+### Visualizing the Question Tree
+
+You can visualize the question tree structure:
+
+```python
+from qa_store import QuestionAnswerTree
+
+tree = QuestionAnswerTree("qa_tree.db")
+tree.visualize("question_tree")
+```
+
+This will generate a PNG image of the question tree.
 
 For more detailed usage instructions, please refer to the [documentation](https://github.com/witt3rd/qa-store/wiki).
 

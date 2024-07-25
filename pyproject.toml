@@ -1,6 +1,6 @@
 [project]
 name = "qa-store"
-version = "0.1.6"
+version = "0.2.0"
 description = "Like a key-value store, but for questions and answers."
 authors = [{ name = "Donald Thompson", email = "witt3rd@witt3rd.com" }]
 dependencies = [
@@ -10,6 +10,7 @@ dependencies = [
     "openai>=1.35.10",
     "loguru>=0.7.2",
     "python-dotenv>=1.0.1",
+    "graphviz>=0.20.3",
 ]
 readme = "README.md"
 requires-python = ">= 3.8"

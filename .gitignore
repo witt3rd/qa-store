@@ -9,4 +9,5 @@ wheels/
 # venv
 .venv
 
-chroma_db/
+db/
+src_py.md
