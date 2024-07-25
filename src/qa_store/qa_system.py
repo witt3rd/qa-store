@@ -1,3 +1,4 @@
+import os
 from typing import Any, Dict, List, Optional
 
 from qa_store.qa_kb import QuestionAnswerKB
@@ -5,9 +6,14 @@ from qa_store.qa_tree import QuestionAnswerTree
 
 
 class QuestionAnswerSystem:
-    def __init__(self, db_path: str, kb_collection_name: str):
+    def __init__(self, db_dir: str, kb_collection_name: str):
+        db_path = os.path.join(db_dir, f"{kb_collection_name}.db")
+        print(db_path)
         self.tree = QuestionAnswerTree(db_path)
-        self.kb = QuestionAnswerKB(collection_name=kb_collection_name)
+        self.kb = QuestionAnswerKB(
+            db_dir=db_dir,
+            collection_name=kb_collection_name,
+        )
 
     def add_question(self, question: str, parent_id: Optional[int] = None) -> int:
         tree_id = self.tree.add_question(question, parent_id)

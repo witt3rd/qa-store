@@ -1,5 +1,7 @@
 import json
 
+from loguru import logger
+
 
 def get_json_list(json_data: str) -> list:
     """
@@ -44,5 +46,6 @@ def get_json_list(json_data: str) -> list:
         raise ValueError("The JSON data is not a dictionary.")
     key = next(iter(json_data))
     if not isinstance(json_data[key], list):
-        raise ValueError("The JSON data does not contain a list.")
+        logger.warning("The JSON data does not contain a list.")
+        return [json_data]
     return json_data[key]

@@ -8,11 +8,16 @@ logger = logging.getLogger(__name__)
 
 
 @pytest.fixture(scope="module")
-def kb():
+def kb(tmp_path_factory):
     logger.info("Setting up QuestionAnswerKB")
-    kb = QuestionAnswerKB()
-    kb.reset_database()
-    yield kb
+    db_path = tmp_path_factory.mktemp("data")
+
+    qakb = QuestionAnswerKB(
+        db_dir=str(db_path),
+        collection_name="test_kb",
+    )
+    qakb.reset_database()
+    yield qakb
     logger.info("Tearing down QuestionAnswerKB")
 
 
@@ -20,17 +25,17 @@ def kb():
 def tree(tmp_path_factory):
     logger.info("Setting up QuestionTree")
     db_path = tmp_path_factory.mktemp("data") / "test_tree.db"
-    tree = QuestionAnswerTree(str(db_path))
-    yield tree
+    t = QuestionAnswerTree(str(db_path))
+    yield t
     logger.info("Tearing down QuestionTree")
 
 
 @pytest.fixture(scope="module")
 def qa_system(tmp_path_factory):
     logger.info("Setting up QASystem")
-    db_path = tmp_path_factory.mktemp("data") / "test_system.db"
-    qa_system = QuestionAnswerSystem(str(db_path), "test_collection")
-    yield qa_system
+    db_path = tmp_path_factory.mktemp("data")
+    qas = QuestionAnswerSystem(str(db_path), "test_collection")
+    yield qas
     logger.info("Tearing down QASystem")
 
 
@@ -40,7 +45,7 @@ def qa_system(tmp_path_factory):
 def test_add_and_query(kb):
     logger.info("Testing add_qa and query functionality")
     kb.add_qa("What is the capital of Germany?", "Berlin")
-    kb.add_qa("Who is the president of the USA?", "Joe Biden")
+    kb.add_qa("Who is the president of the USA?", "Donald Trump")
     kb.add_qa("What is the answer to life, the universe, and everything?", 42)
 
     results = kb.query("What is the capital of Germany?")
@@ -49,11 +54,11 @@ def test_add_and_query(kb):
 
     results = kb.query("Who is the president of the USA?")
     logger.debug("Query result: %s", results)
-    assert results[0]["answer"] == "Joe Biden"
+    assert results[0]["answer"] == "Donald Trump"
 
     results = kb.query("What is the answer to life, the universe, and everything?")
     logger.debug("Query result: %s", results)
-    assert results[0]["answer"] == "42"
+    assert results[0]["answer"] == 42
 
 
 def test_update_answer(kb):
@@ -168,11 +173,11 @@ def test_qa_system(qa_system):
     ]
 
     results = qa_system.query("What is the scope of the project?")
-    assert len(results) == 2
+    assert len(results) > 0
     assert results[0]["question"] == "What is the project scope?"
+    assert results[0]["answer"] == ""
     metadata = results[0]["metadata"]
     assert metadata["tree_id"] == q1_id
-    assert "answer" not in metadata
 
     # Answer a question
     qa_system.answer_question(

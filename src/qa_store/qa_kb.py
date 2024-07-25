@@ -1,4 +1,3 @@
-import json
 import os
 from textwrap import dedent
 from typing import Any, Dict, List, Optional, Set
@@ -46,53 +45,44 @@ What is the name of Italy's capital?
 
 
 QA_PAIRS_PROMPT = dedent("""
-Generate a balanced set (2 or more) of relevant questions and their
-corresponding answers provided by the given text.
-Ensure the questions cover a mix of factual, analytical, application-based,
-cause-and-effect, comparison, and scenario-based types to provide both
-surface-level and in-depth knowledge of the subject.
-Only generate questions for which answers are present in the text.  Do not
-speculate.
-Format your result as a JSON array of objects, where each object has a 'q' key
+Derive various questions (along with their answers) that this text implies:
+Format your result as a JSON list of objects, where each object has a 'q' key
 for the question and an 'a' key for the answer.
-
-## Example:
-[INPUT TEXT]
-The ego is a psychological concept that represents the part of the human psyche
-responsible for mediating between the unconscious and the conscious mind. It
-plays a crucial role in personality development, decision-making, and reality
-testing. The ego helps individuals navigate their environment, manage impulses,
-and maintain a sense of self. In Freudian psychoanalysis, the ego is part of a
-tripartite model of the psyche, which also includes the id and the superego.
-
-[OUTPUT JSON]
-[{"q": "What is the ego in psychological terms?", "a": "The ego is a
-psychological concept that represents the part of the human psyche responsible
-for mediating between the unconscious and the conscious mind."}, {"q": "What are
-the main functions of the ego?", "a": "The main functions of the ego include
-playing a crucial role in personality development, decision-making, reality
-testing, helping individuals navigate their environment, managing impulses, and
-maintaining a sense of self."}, {"q": "How does the ego relate to Freudian
-psychoanalysis?", "a": "In Freudian psychoanalysis, the ego is part of a
-tripartite model of the psyche, which also includes the id and the superego."},
-{"q": "How does the ego help in managing impulses?", "a": "The ego helps in
-managing impulses by mediating between the unconscious desires (often
-represented by the id) and the constraints of reality, allowing individuals to
-make decisions that balance their needs with social and environmental
-demands."}, {"q": "What is the relationship between the ego and reality
-testing?", "a": "The ego is responsible for reality testing, which involves
-assessing the external world and distinguishing between internal psychological
-experiences and external reality, helping individuals to adapt to their
-environment effectively."}, {"q": "How does the ego contribute to personality
-development?", "a": "The ego contributes to personality development by helping
-individuals form a stable sense of self, make decisions, and interact with their
-environment in ways that shape their unique characteristics and behaviors over
-time."}, {"q": "What might happen if the ego is not functioning properly?", "a":
-"If the ego is not functioning properly, an individual might struggle with
-decision-making, have difficulty managing impulses, experience a distorted sense
-of reality, or have problems maintaining a stable sense of self. However,
-specific consequences are not provided in the given text."}]
 """).strip()
+
+QA_PAIRS_JSON_PROMPT = dedent("""
+You will be given a text containing question and answer pairs in various
+formats. Your task is to extract these pairs and convert them into a JSON array
+of objects. Each object should have two keys: 'q' for the question and 'a' for
+the answer.
+The output should be structured as follows:
+[
+{
+"q": "Question 1",
+"a": "Answer 1"
+},
+{
+"q": "Question 2",
+"a": "Answer 2"
+},
+...
+]
+Ensure that:
+
+The entire output is a valid JSON array.
+Each question-answer pair is represented as a separate object within the array.
+The 'q' key contains the full question text.
+The 'a' key contains the full answer text.
+Any formatting or structure from the original text is removed, presenting clean
+question and answer strings.
+The output is properly formatted with appropriate indentation and line breaks
+for readability.
+
+Process the entire input text and include all question-answer pairs found in the
+output JSON array.
+""").strip()
+
+#
 
 
 class QuestionAnswerKB:
@@ -114,6 +104,65 @@ class QuestionAnswerKB:
         )
 
         logger.info(f"QuestionAnswerKB initialized for collection '{collection_name}'.")
+
+    def _parse_qa_pairs_as_json(
+        self,
+        text: str,
+        model: str = QA_PAIRS_MODEL_NAME,
+    ) -> List[Dict[str, str]]:
+        """
+        Parse a string of question-answer pairs as JSON.
+
+        Args:
+            text (str): The string of question-answer pairs.
+
+        Returns:
+            List[Dict[str, str]]: A list of dictionaries, each containing a
+            question and its corresponding answer.
+        """
+        text = text.strip()
+        if not text:
+            return []
+
+        try:
+            qa_pairs = get_json_list(text)
+            if isinstance(qa_pairs, list):
+                return qa_pairs
+        except Exception:
+            pass
+
+        retries = 0
+        previous_error = None
+
+        while retries < 3:
+            user_content = (
+                dedent(f"""
+                Previous error:\n\n{previous_error}\n\n
+                """).strip()
+                if previous_error
+                else ""
+            )
+            user_content += "Input text:\n\n" + text
+
+            try:
+                response = completion(
+                    model=model,
+                    messages=[
+                        {"role": "system", "content": QA_PAIRS_JSON_PROMPT},
+                        {"role": "user", "content": user_content},
+                    ],
+                    response_format={"type": "json_object"},
+                )
+                content: str = response.choices[0].message.content  # type: ignore
+                qa_pairs = get_json_list(content)
+                if not isinstance(qa_pairs, list):
+                    raise ValueError(
+                        "Expected a list of QA pairs, but got a different format."
+                    )
+            except Exception as e:
+                previous_error = e
+                retries += 1
+                print(f"Error: {str(e)}")
 
     def generate_qa_pairs(
         self,
@@ -143,28 +192,16 @@ class QuestionAnswerKB:
                 response_format={"type": "json_object"},
             )
 
-            content = response.choices[0].message.content
+            content: str = response.choices[0].message.content  # type: ignore
+            qa_pairs = self._parse_qa_pairs_as_json(content, model=model)
 
-            qa_pairs = get_json_list(content)
-
-            # Ensure the response is a list of dictionaries
-            if not isinstance(qa_pairs, list):
-                raise ValueError(
-                    "Expected a list of QA pairs, but got a different format."
-                )
-
-            # Validate each QA pair
             for pair in qa_pairs:
                 if not isinstance(pair, dict) or "q" not in pair or "a" not in pair:
                     raise ValueError("Invalid QA pair format in the response.")
-
             return qa_pairs
 
-        except json.JSONDecodeError:
-            print("Error: Unable to parse the response as JSON.")
-            return []
         except Exception as e:
-            print(f"An error occurred: {str(e)}")
+            print(str(e))
             return []
 
     def generate_rewordings(
@@ -210,7 +247,7 @@ class QuestionAnswerKB:
     def add_qa(
         self,
         question: str | list[str],
-        answer: Any,
+        answer: Any = None,
         metadata: Dict[str, Any] | None = None,
         num_rewordings: int = 0,
     ) -> Set[str]:
@@ -235,7 +272,7 @@ class QuestionAnswerKB:
 
         """
         metadata = metadata or {}
-        metadata["answer"] = str(answer)
+        metadata["answer"] = answer if answer else ""
 
         if isinstance(question, str) and num_rewordings > 0:
             questions = self.generate_rewordings(question, num_rewordings)
